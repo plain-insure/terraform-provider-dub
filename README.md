@@ -109,6 +109,20 @@ resource "dub_webhook" "example" {
 See [`docs/`](./docs) for full resource/data source reference and
 [`examples/`](./examples) for additional usage samples.
 
+## Releases
+
+Pushing a tag matching `v*` creates a signed GitHub release through
+GoReleaser. Before creating the first release, configure these repository
+Actions secrets:
+
+- `GPG_PRIVATE_KEY`: the ASCII-armored private key used to sign checksums.
+- `GPG_PASSPHRASE`: the passphrase for that key.
+
+The corresponding public key must be associated with the `plain-insure` Terraform
+Registry publisher account. Create a release with an annotated semantic-version
+tag, for example `git tag -a v0.1.0 -m "v0.1.0"` followed by `git push origin
+v0.1.0`.
+
 ## Development
 
 ```shell
