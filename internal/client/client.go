@@ -15,7 +15,10 @@ import (
 	"strings"
 )
 
-const defaultBaseURL = "https://api.dub.co"
+const (
+	defaultBaseURL        = "https://api.dub.co"
+	defaultWebhookBaseURL = "https://app.dub.co/api"
+)
 
 // Client is a small wrapper around http.Client that knows how to talk to the
 // Dub API for domain resources.
@@ -25,11 +28,18 @@ type Client struct {
 	WorkspaceID string
 	HTTPClient  *http.Client
 	UserAgent   string
+	Webhooks    *WebhookClient
 }
 
 // New creates a new Dub API client. baseURL may be empty, in which case the
 // default production API URL is used.
 func New(baseURL, apiKey, workspaceID string, httpClient *http.Client) *Client {
+	client := newClient(baseURL, apiKey, workspaceID, httpClient)
+	client.Webhooks = NewWebhookClient(apiKey, workspaceID, httpClient)
+	return client
+}
+
+func newClient(baseURL, apiKey, workspaceID string, httpClient *http.Client) *Client {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
@@ -44,6 +54,23 @@ func New(baseURL, apiKey, workspaceID string, httpClient *http.Client) *Client {
 		HTTPClient:  httpClient,
 		UserAgent:   "terraform-provider-dub",
 	}
+}
+
+// WebhookClient is a dedicated client for Dub's app API webhook endpoints.
+// These endpoints are distinct from the public API used by Client.
+type WebhookClient struct {
+	client *Client
+}
+
+// NewWebhookClient creates a client for Dub's app API webhook endpoints.
+func NewWebhookClient(apiKey, workspaceID string, httpClient *http.Client) *WebhookClient {
+	return NewWebhookClientWithBaseURL(defaultWebhookBaseURL, apiKey, workspaceID, httpClient)
+}
+
+// NewWebhookClientWithBaseURL creates a webhook client with a custom base URL.
+// It is primarily useful for testing the app API integration.
+func NewWebhookClientWithBaseURL(baseURL, apiKey, workspaceID string, httpClient *http.Client) *WebhookClient {
+	return &WebhookClient{client: newClient(baseURL, apiKey, workspaceID, httpClient)}
 }
 
 // APIError represents an error response returned by the Dub API.
@@ -193,6 +220,16 @@ func IsNotFound(err error) bool {
 	return apiErr.StatusCode == http.StatusNotFound
 }
 
+// IsForbidden returns true if err represents a 403 Forbidden response from
+// the Dub API.
+func IsForbidden(err error) bool {
+	var apiErr *APIError
+	if !asAPIError(err, &apiErr) {
+		return false
+	}
+	return apiErr.StatusCode == http.StatusForbidden
+}
+
 func asAPIError(err error, target **APIError) bool {
 	apiErr, ok := err.(*APIError)
 	if !ok {
@@ -281,4 +318,92 @@ func (c *Client) ListDomains(ctx context.Context, params ListDomainsParams) ([]D
 		return nil, err
 	}
 	return out, nil
+}
+
+// Webhook represents a webhook returned by Dub's app API.
+type Webhook struct {
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	URL            string   `json:"url"`
+	Secret         string   `json:"secret"`
+	Triggers       []string `json:"triggers"`
+	LinkScope      *string  `json:"linkScope"`
+	DisabledAt     *string  `json:"disabledAt"`
+	InstallationID *string  `json:"installationId"`
+}
+
+// WebhookRequest is the request body used to create or update a webhook.
+type WebhookRequest struct {
+	Name      string   `json:"name"`
+	URL       string   `json:"url"`
+	Triggers  []string `json:"triggers"`
+	LinkScope *string  `json:"linkScope"`
+	LinkIDs   []string `json:"linkIds,omitempty"`
+	FolderIDs []string `json:"folderIds,omitempty"`
+}
+
+// WorkspaceID returns the workspace used by the webhook client.
+func (c *WebhookClient) WorkspaceID() string {
+	return c.client.WorkspaceID
+}
+
+func (c *WebhookClient) newRequest(ctx context.Context, method, path string, body any) (*http.Request, error) {
+	req, err := c.client.newRequest(ctx, method, path, nil, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
+}
+
+// CreateWebhook creates a webhook in the configured workspace.
+func (c *WebhookClient) CreateWebhook(ctx context.Context, in WebhookRequest) (*Webhook, error) {
+	req, err := c.newRequest(ctx, http.MethodPost, "/webhooks", in)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Webhook
+	if err := c.client.do(req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetWebhook retrieves a webhook by ID from the configured workspace.
+func (c *WebhookClient) GetWebhook(ctx context.Context, id string) (*Webhook, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/webhooks/"+url.PathEscape(id), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Webhook
+	if err := c.client.do(req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// UpdateWebhook updates a webhook by ID in the configured workspace.
+func (c *WebhookClient) UpdateWebhook(ctx context.Context, id string, in WebhookRequest) (*Webhook, error) {
+	req, err := c.newRequest(ctx, http.MethodPatch, "/webhooks/"+url.PathEscape(id), in)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Webhook
+	if err := c.client.do(req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteWebhook deletes a webhook by ID from the configured workspace.
+func (c *WebhookClient) DeleteWebhook(ctx context.Context, id string) error {
+	req, err := c.newRequest(ctx, http.MethodDelete, "/webhooks/"+url.PathEscape(id), nil)
+	if err != nil {
+		return err
+	}
+
+	return c.client.do(req, nil)
 }

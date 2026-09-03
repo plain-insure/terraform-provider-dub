@@ -21,6 +21,19 @@ func TestDomainResource_SchemaValid(t *testing.T) {
 	}
 }
 
+func TestWebhookResource_SchemaValid(t *testing.T) {
+	ctx := context.Background()
+	r := NewWebhookResource()
+	resp := &resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, resp)
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", resp.Diagnostics)
+	}
+	if diags := resp.Schema.ValidateImplementation(ctx); diags.HasError() {
+		t.Fatalf("schema validation failed: %v", diags)
+	}
+}
+
 func TestDomainDataSource_SchemaValid(t *testing.T) {
 	ctx := context.Background()
 	d := NewDomainDataSource()

@@ -23,6 +23,13 @@ func testAccPreCheck(t *testing.T) {
 	}
 }
 
+func testAccWebhookPreCheck(t *testing.T) {
+	testAccPreCheck(t)
+	if os.Getenv("DUB_WORKSPACE_ID") == "" {
+		t.Skip("DUB_WORKSPACE_ID must be set for webhook acceptance tests")
+	}
+}
+
 // TestAccDomainResource is a full lifecycle acceptance test that exercises
 // the dub_domain resource against the real Dub API. It only runs when
 // TF_ACC=1 and DUB_API_KEY are set, consistent with terraform-plugin-testing
@@ -67,4 +74,49 @@ resource "dub_domain" "test" {
   archived = %t
 }
 `, slug, archived)
+}
+
+// TestAccWebhookResource round-trips the undocumented app API endpoint so
+// upstream changes are detected before release. It requires a Business,
+// Advanced, or Enterprise workspace and webhooks.read/webhooks.write scopes.
+func TestAccWebhookResource(t *testing.T) {
+	name := fmt.Sprintf("tf-acc-webhook-%d", os.Getpid())
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccWebhookPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccWebhookResourceConfig(name, "link.created"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("dub_webhook.test", "name", name),
+					resource.TestCheckResourceAttr("dub_webhook.test", "triggers.#", "1"),
+					resource.TestCheckResourceAttrSet("dub_webhook.test", "id"),
+					resource.TestCheckResourceAttrSet("dub_webhook.test", "secret"),
+				),
+			},
+			{
+				ResourceName:      "dub_webhook.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccWebhookResourceConfig(name+" updated", "link.updated"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("dub_webhook.test", "name", name+" updated"),
+					resource.TestCheckResourceAttr("dub_webhook.test", "triggers.#", "1"),
+				),
+			},
+		},
+	})
+}
+
+func testAccWebhookResourceConfig(name, trigger string) string {
+	return fmt.Sprintf(`
+resource "dub_webhook" "test" {
+  name     = %q
+  url      = "https://example.com/terraform-provider-dub-webhook"
+  triggers = [%q]
+}
+`, name, trigger)
 }

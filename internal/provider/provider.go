@@ -1,6 +1,5 @@
 // Package provider implements the Terraform provider for managing Dub
-// (https://dub.co) resources. Only domain management is currently
-// implemented.
+// (https://dub.co) resources.
 package provider
 
 import (
@@ -113,6 +112,7 @@ func (p *DubProvider) Configure(ctx context.Context, req provider.ConfigureReque
 func (p *DubProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewDomainResource,
+		NewWebhookResource,
 	}
 }
 
