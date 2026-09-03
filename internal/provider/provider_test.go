@@ -1,0 +1,52 @@
+package provider
+
+import (
+	"context"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+)
+
+// providerFactories are used to instantiate the Dub provider during
+// acceptance testing.
+var providerFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"dub": providerserver.NewProtocol6WithError(New("test")()),
+}
+
+func TestProvider_SchemaValid(t *testing.T) {
+	ctx := context.Background()
+
+	p := New("test")()
+	resp := &provider.SchemaResponse{}
+	p.Schema(ctx, provider.SchemaRequest{}, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", resp.Diagnostics)
+	}
+	if _, ok := resp.Schema.Attributes["api_key"]; !ok {
+		t.Fatal("expected api_key attribute in provider schema")
+	}
+	if _, ok := resp.Schema.Attributes["base_url"]; !ok {
+		t.Fatal("expected base_url attribute in provider schema")
+	}
+	if _, ok := resp.Schema.Attributes["workspace_id"]; !ok {
+		t.Fatal("expected workspace_id attribute in provider schema")
+	}
+}
+
+func TestProvider_Metadata(t *testing.T) {
+	ctx := context.Background()
+
+	p := New("1.2.3")()
+	resp := &provider.MetadataResponse{}
+	p.Metadata(ctx, provider.MetadataRequest{}, resp)
+
+	if resp.TypeName != "dub" {
+		t.Fatalf("expected type name 'dub', got %q", resp.TypeName)
+	}
+	if resp.Version != "1.2.3" {
+		t.Fatalf("expected version '1.2.3', got %q", resp.Version)
+	}
+}
