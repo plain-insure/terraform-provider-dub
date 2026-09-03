@@ -5,15 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/provider"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
-
-// providerFactories are used to instantiate the Dub provider during
-// acceptance testing.
-var providerFactories = map[string]func() (tfprotov6.ProviderServer, error){
-	"dub": providerserver.NewProtocol6WithError(New("test")()),
-}
 
 func TestProvider_SchemaValid(t *testing.T) {
 	ctx := context.Background()

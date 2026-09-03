@@ -277,20 +277,7 @@ func (d *DomainsDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	items := make([]DomainSummaryModel, 0, len(domains))
 	for i := range domains {
 		m := domainToModel(&domains[i])
-		items = append(items, DomainSummaryModel{
-			ID:          m.ID,
-			Slug:        m.Slug,
-			Verified:    m.Verified,
-			Primary:     m.Primary,
-			Archived:    m.Archived,
-			Placeholder: m.Placeholder,
-			ExpiredURL:  m.ExpiredURL,
-			NotFoundURL: m.NotFoundURL,
-			Logo:        m.Logo,
-			LinksCount:  m.LinksCount,
-			CreatedAt:   m.CreatedAt,
-			UpdatedAt:   m.UpdatedAt,
-		})
+		items = append(items, DomainSummaryModel(m))
 	}
 	config.Domains = items
 
