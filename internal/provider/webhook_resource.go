@@ -142,12 +142,6 @@ func (r *WebhookResource) Configure(_ context.Context, req resource.ConfigureReq
 	}
 
 	r.client = client.Webhooks
-	if r.client.WorkspaceID() == "" {
-		resp.Diagnostics.AddError(
-			"Missing Dub Workspace ID",
-			"dub_webhook requires workspace_id in the provider configuration or the DUB_WORKSPACE_ID environment variable so every app API request can target a workspace explicitly.",
-		)
-	}
 }
 
 func (r *WebhookResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {

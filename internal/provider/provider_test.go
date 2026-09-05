@@ -5,6 +5,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+
+	dubclient "github.com/plain-insure/terraform-provider-dub/internal/client"
 )
 
 func TestProvider_SchemaValid(t *testing.T) {
@@ -40,5 +43,18 @@ func TestProvider_Metadata(t *testing.T) {
 	}
 	if resp.Version != "1.2.3" {
 		t.Fatalf("expected version '1.2.3', got %q", resp.Version)
+	}
+}
+
+func TestWebhookResource_ConfigureWithoutWorkspaceID(t *testing.T) {
+	webhookResource := &WebhookResource{}
+	resp := &resource.ConfigureResponse{}
+
+	webhookResource.Configure(context.Background(), resource.ConfigureRequest{
+		ProviderData: dubclient.New("", "test-api-key", "", nil),
+	}, resp)
+
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", resp.Diagnostics)
 	}
 }

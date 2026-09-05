@@ -138,6 +138,9 @@ func TestListDomains(t *testing.T) {
 		if r.URL.Path != "/domains" {
 			t.Fatalf("expected path /domains, got %s", r.URL.Path)
 		}
+		if _, ok := r.URL.Query()["workspaceId"]; ok {
+			t.Fatal("expected workspaceId query parameter to be omitted")
+		}
 		if got := r.URL.Query().Get("search"); got != "acme" {
 			t.Fatalf("expected search=acme query param, got %q", got)
 		}
